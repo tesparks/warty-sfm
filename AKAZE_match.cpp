@@ -13,34 +13,50 @@ const float nn_match_ratio = 0.7f;   // Nearest neighbor matching ratio
 void findProjectionMatrix(Mat K_1, Mat K_2, Mat F, Mat Projection_Mat_1, Mat Projection_Mat_2) {
 	Mat_<double> essential_mat = K_1.t() * F * K_2;
 	
-	printf("in projection matrix\n");
 	Matx33d delta(0,-1,0,
 			1,0,0,
 			0,0,1);
 			
 	SVD svd(essential_mat);
-	printf("in projection matrix\n");
-	Mat_<double> R = svd.u * Mat(delta) * svd.vt;
+	Mat_<double> r = svd.u * Mat(delta) * svd.vt;
+	
 	Mat_<double> t = svd.u.col(2);
-	Mat_<double> Rt = Mat(Matx34d(R(0,0), R(0,1), R(0, 2), t(0),
-							R(1,0), R(1,1), R(1, 2), t(1),
-							R(2,0), R(2,1), R(2, 2), t(2)));
-							
-	Mat projection_mat_2 = K_2*Rt;
-	
-	Mat_<double> projection_mat_1 = Mat(Matx34d(1,0,0,0,
-											 0,1,0,0,
-											 0,0,1,0));
-	
-	projection_mat_1 = K_1 * projection_mat_1;
+	//Mat_<double> Rt = Mat(Matx34d(R(0,0), R(0,1), R(0, 2), t(0),
+	//						R(1,0), R(1,1), R(1, 2), t(1),
+	//						R(2,0), R(2,1), R(2, 2), t(2)));
+	//						
+	//Mat projection_mat_2 = K_2*Rt;
+	//
+	//Mat_<double> projection_mat_1 = Mat(Matx34d(1,0,0,0,
+	//										 0,1,0,0,
+	//										 0,0,1,0));
+	//
+	//projection_mat_1 = K_1 * projection_mat_1;
+
+	Mat_<double> distCoeffs = Mat(Matx33d(1, 0, 1, 
+										  0, 1, 1, 
+										  0, 0, 1));
+
+	Size imgSize = Size(2813, 1873);
+	Mat R_1 = Mat_<double>(3, 3);
+	Mat R_2 = Mat_<double>(3, 3);
+
+	Mat projection_mat_1 = Mat_<double>(3, 4);
+	Mat projection_mat_2 = Mat_<double>(3, 4);
+
+	Mat ddm = Mat_<double>(4, 4);
+
+	stereoRectify(K_1, distCoeffs, K_2, distCoeffs, imgSize, r, t, R_1, R_2,
+		projection_mat_1, projection_mat_2, ddm, 0, -1, imgSize);
+
 	
 	projection_mat_1.copyTo(Projection_Mat_1);
 	projection_mat_2.copyTo(Projection_Mat_2);
-	//Mat triangulated;
-    //triangulatePoints(camera_matrix, camera_matrix, matched_pts1, matched_pts2, triangulated);
 	
 	return;
 }
+
+
 
 void findCameraMatrix(Mat K_camera) {
 	double focal_length_mm  = 24;
@@ -54,16 +70,11 @@ void findCameraMatrix(Mat K_camera) {
 	double focal_length_x_px = image_width_px * focal_length_mm / sensor_width_mm;
 	double focal_length_y_px = image_height_px * focal_length_mm / sensor_height_mm;
 	
-//	K_camera = (focal_length_x_px, 0, principal_point_x_px,
-//										0, focal_length_y_px, principal_point_y_px,
-//										0, 0, 1);
-	
 	K_camera.at<double>(0,0,0) = focal_length_x_px;
 	K_camera.at<double>(0,2,0) = principal_point_x_px;
 	K_camera.at<double>(1,1,0) = focal_length_y_px;
 	K_camera.at<double>(1,2,0) = principal_point_y_px;
 	K_camera.at<double>(2,2,0) = 1;
-	cout << K_camera << endl;
 }
 
 
@@ -72,15 +83,12 @@ Mat findFundamentalMatrix(vector<Point2f> matched_pts1, vector<Point2f> matched_
 	
 	const double threshold(4.0*std::max(img1.size().width, img1.size().height));
 	Mat fundamental_mat = findFundamentalMat(cv::Mat{matched_pts1, true}, cv::Mat{matched_pts2, true}, status, cv::FM_RANSAC, threshold);
-	cout << fundamental_mat << endl;
 	return fundamental_mat;
 }
 
 
 int main(int argc, char* argv[])
 {
-
-    printf("working now\n");
     
     Mat img1 = imread(argv[1], IMREAD_GRAYSCALE);
     Mat img2 = imread(argv[2], IMREAD_GRAYSCALE);
