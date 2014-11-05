@@ -33,10 +33,7 @@ void findProjectionMatrix(Mat K_1, Mat K_2, Mat F, Mat Projection_Mat_1, Mat Pro
 	//
 	//projection_mat_1 = K_1 * projection_mat_1;
 
-	Mat_<double> distCoeffs = Mat(Matx33d(1, 0, 1, 
-										  0, 1, 1, 
-										  0, 0, 1));
-
+	Mat distCoeffs = (Mat_<float>(1, 5) << 0, 0, 1, 1, 0);
 	Size imgSize = Size(2813, 1873);
 	Mat R_1 = Mat_<double>(3, 3);
 	Mat R_2 = Mat_<double>(3, 3);
@@ -63,7 +60,7 @@ void findCameraMatrix(Mat K_camera) {
 	double sensor_width_mm = 36; //full frame
 	double sensor_height_mm = 24; //full frame
 	unsigned int image_width_px = 2813;
-	unsigned int image_height_px = 2813*3/2;
+	unsigned int image_height_px = 2813*2/3;
 	double principal_point_x_px = image_width_px/2;
 	double principal_point_y_px = image_height_px/2;
 	
@@ -76,6 +73,40 @@ void findCameraMatrix(Mat K_camera) {
 	K_camera.at<double>(1,2,0) = principal_point_y_px;
 	K_camera.at<double>(2,2,0) = 1;
 }
+
+
+vector<Point3d> LinearLSTriangulation(vector<Point2f> matched_pts1, Mat K_1, vector<Point2f> matched_pts2, Mat K_2)
+{
+
+	vector<Point3d> triangulatedPoints;
+	
+	for (size_t i = 0; i < matched_pts1.size(); i++) {
+		
+		Point2f pt1 = matched_pts1[i];
+		Point2f pt2 = matched_pts2[i];
+
+		Matx43d A(pt1.x*K_1.at<double>(2, 0) - K_1.at<double>(0, 0), pt1.x*K_1.at<double>(2, 1) - K_1.at<double>(0, 1), pt1.x*K_1.at<double>(2, 2) - K_1.at<double>(0, 2),
+			pt1.y*K_1.at<double>(2, 0) - K_1.at<double>(1, 0), pt1.y*K_1.at<double>(2, 1) - K_1.at<double>(1, 1), pt1.y*K_1.at<double>(2, 2) - K_1.at<double>(1, 2),
+			pt2.x*K_2.at<double>(2, 0) - K_2.at<double>(0, 0), pt2.x*K_2.at<double>(2, 1) - K_2.at<double>(0, 1), pt2.x*K_2.at<double>(2, 2) - K_2.at<double>(0, 2),
+			pt2.y*K_2.at<double>(2, 0) - K_2.at<double>(1, 0), pt2.y*K_2.at<double>(2, 1) - K_2.at<double>(1, 1), pt2.y*K_2.at<double>(2, 2) - K_2.at<double>(1, 2));
+
+		Mat_<double> B = (Mat_<double>(4, 1) << -(pt1.x*K_1.at<double>(2, 3) - K_1.at<double>(0, 3)),
+			-(pt1.y*K_1.at<double>(2, 3) - K_1.at<double>(1, 3)),
+			-(pt2.x*K_2.at<double>(2, 3) - K_2.at<double>(0, 3)),
+			-(pt2.y*K_2.at<double>(2, 3) - K_2.at<double>(1, 3)));
+		
+		Mat_<double> X;
+		solve(A, B, X, DECOMP_SVD);
+
+		Point3d ptA = Point3d(X(0), X(1), X(2));
+
+		triangulatedPoints.push_back(ptA);
+
+	}
+	
+	return triangulatedPoints;
+}
+
 
 
 Mat findFundamentalMatrix(vector<Point2f> matched_pts1, vector<Point2f> matched_pts2, Mat img1) {
@@ -188,11 +219,19 @@ int main(int argc, char* argv[])
     findProjectionMatrix(camera_matrix_1, camera_matrix_2, fundamental_matrix, projection_matrix_1, projection_matrix_2);
     
     
-    Mat triangulated;
+   /* Mat triangulated;
     triangulatePoints(projection_matrix_1, projection_matrix_2, matched_pts1, matched_pts2, triangulated);
-    
-    cout << triangulated.size() << endl;
-    cout << triangulated.col(1) << endl;
+    */
+
+	
+	
+
+	
+
+
+
+   // cout << triangulated.size() << endl;
+   // cout << triangulated.col(1) << endl;
     //cout << triangulated << endl;
     
     
